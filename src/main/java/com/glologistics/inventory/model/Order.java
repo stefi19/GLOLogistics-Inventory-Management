@@ -12,6 +12,17 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Order {
+    @Override
+    public String toString() {
+        return String.format("Order{id=%d, customerId=%d, productId=%d, quantity=%d, total=%.2f, date=%s, status=%s}", 
+            orderId, 
+            customer != null ? customer.getCustomerId() : null,
+            product != null ? product.getProductId() : null,
+            quantity, 
+            totalAmount, 
+            orderDate, 
+            status);
+    }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long orderId;

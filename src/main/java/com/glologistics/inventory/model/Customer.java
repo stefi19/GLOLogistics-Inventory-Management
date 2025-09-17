@@ -13,6 +13,11 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class Customer {
+    @Override
+    public String toString() {
+        return String.format("Customer{id=%d, name='%s', contact='%s', address='%s'}", 
+            customerId, customerName, contactNumber, address);
+    }
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long customerId;
