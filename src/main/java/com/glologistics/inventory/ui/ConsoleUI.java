@@ -271,8 +271,8 @@ public class ConsoleUI implements CommandLineRunner {
         for (Order order : orders) {
             System.out.printf("%-5d %-10d %-10d %-8d $%-9.2f %-12s%n",
                     order.getOrderId(),
-                    order.getCustomerId(),
-                    order.getProductId(),
+                    order.getCustomer().getCustomerId(),
+                    order.getProduct().getProductId(),
                     order.getQuantity(),
                     order.getTotalAmount(),
                     order.getStatus());
