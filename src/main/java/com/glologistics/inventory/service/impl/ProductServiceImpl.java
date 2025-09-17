@@ -2,62 +2,58 @@ package com.glologistics.inventory.service.impl;
 
 import com.glologistics.inventory.exception.ProductNotFoundException;
 import com.glologistics.inventory.model.Product;
+import com.glologistics.inventory.repository.ProductRepository;
 import com.glologistics.inventory.service.ProductService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
+@Transactional
 public class ProductServiceImpl implements ProductService {
-    private final Map<Long, Product> products = new ConcurrentHashMap<>();
-    private final AtomicLong productIdGenerator = new AtomicLong(1);
+    
+    @Autowired
+    private ProductRepository productRepository;
 
     @Override
     public Product addProduct(Product product) {
-        product.setProductId(productIdGenerator.getAndIncrement());
-        products.put(product.getProductId(), product);
-        return product;
+        return productRepository.save(product);
     }
 
     @Override
     public Product updateProduct(Product product) {
-        if (!products.containsKey(product.getProductId())) {
+        if (!productRepository.existsById(product.getProductId())) {
             throw new ProductNotFoundException("Product not found with ID: " + product.getProductId());
         }
-        products.put(product.getProductId(), product);
-        return product;
+        return productRepository.save(product);
     }
 
     @Override
     public void deleteProduct(Long productId) {
-        if (!products.containsKey(productId)) {
+        if (!productRepository.existsById(productId)) {
             throw new ProductNotFoundException("Product not found with ID: " + productId);
         }
-        products.remove(productId);
+        productRepository.deleteById(productId);
     }
 
     @Override
     public Product getProduct(Long productId) {
-        Product product = products.get(productId);
-        if (product == null) {
-            throw new ProductNotFoundException("Product not found with ID: " + productId);
-        }
-        return product;
+        return productRepository.findById(productId)
+            .orElseThrow(() -> new ProductNotFoundException("Product not found with ID: " + productId));
     }
 
     @Override
     public List<Product> getAllProducts() {
-        return new ArrayList<>(products.values());
+        return productRepository.findAll();
     }
 
     @Override
+    @Transactional
     public void updateStock(Long productId, Integer quantity) {
         Product product = getProduct(productId);
         product.setQuantityInStock(quantity);
-        products.put(productId, product);
+        productRepository.save(product);
     }
 }

@@ -4,44 +4,51 @@ import com.glologistics.inventory.exception.InsufficientStockException;
 import com.glologistics.inventory.exception.OrderNotFoundException;
 import com.glologistics.inventory.model.Order;
 import com.glologistics.inventory.model.Product;
+import com.glologistics.inventory.model.Customer;
+import com.glologistics.inventory.repository.OrderRepository;
+import com.glologistics.inventory.repository.CustomerRepository;
 import com.glologistics.inventory.service.OrderService;
 import com.glologistics.inventory.service.ProductService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
+@Transactional
 public class OrderServiceImpl implements OrderService {
-    private final Map<Long, Order> orders = new ConcurrentHashMap<>();
-    private final AtomicLong orderIdGenerator = new AtomicLong(1);
+
+    @Autowired
+    private OrderRepository orderRepository;
+
+    @Autowired
+    private CustomerRepository customerRepository;
 
     @Autowired
     private ProductService productService;
 
     @Override
+    @Transactional
     public Order generateOrder(Long customerId, Long productId, Integer quantity) {
         Product product = productService.getProduct(productId);
+        Customer customer = customerRepository.findById(customerId)
+            .orElseThrow(() -> new IllegalArgumentException("Customer not found with ID: " + customerId));
         
         if (product.getQuantityInStock() < quantity) {
             throw new InsufficientStockException("Insufficient stock for product: " + productId);
         }
 
         Order order = new Order();
-        order.setOrderId(orderIdGenerator.getAndIncrement());
-        order.setCustomerId(customerId);
-        order.setProductId(productId);
+        order.setCustomer(customer);
+        order.setProduct(product);
         order.setQuantity(quantity);
         order.setTotalAmount(product.getProductPrice() * quantity);
         order.setOrderDate(LocalDateTime.now());
         order.setStatus(Order.OrderStatus.PENDING);
 
-        orders.put(order.getOrderId(), order);
+        order = orderRepository.save(order);
         
         // Update product stock
         productService.updateStock(productId, product.getQuantityInStock() - quantity);
@@ -50,35 +57,34 @@ public class OrderServiceImpl implements OrderService {
     }
 
     @Override
+    @Transactional
     public void updateOrderStatus(Long orderId, Order.OrderStatus status) {
         Order order = getOrder(orderId);
         order.setStatus(status);
         
         if (status == Order.OrderStatus.REJECTED) {
             // Return the quantity back to stock
-            Product product = productService.getProduct(order.getProductId());
-            productService.updateStock(order.getProductId(), 
+            Product product = order.getProduct();
+            productService.updateStock(product.getProductId(), 
                 product.getQuantityInStock() + order.getQuantity());
         }
         
-        orders.put(orderId, order);
+        orderRepository.save(order);
     }
 
     @Override
     public Order getOrder(Long orderId) {
-        Order order = orders.get(orderId);
-        if (order == null) {
-            throw new OrderNotFoundException("Order not found with ID: " + orderId);
-        }
-        return order;
+        return orderRepository.findById(orderId)
+            .orElseThrow(() -> new OrderNotFoundException("Order not found with ID: " + orderId));
     }
 
     @Override
     public List<Order> getAllOrders() {
-        return new ArrayList<>(orders.values());
+        return orderRepository.findAll();
     }
 
     @Override
+    @Transactional
     public void deleteOrder(Long orderId) {
         Order order = getOrder(orderId);
         if (order.getStatus() != Order.OrderStatus.PENDING) {
@@ -86,10 +92,10 @@ public class OrderServiceImpl implements OrderService {
         }
         
         // Return the quantity back to stock
-        Product product = productService.getProduct(order.getProductId());
-        productService.updateStock(order.getProductId(), 
+        Product product = order.getProduct();
+        productService.updateStock(product.getProductId(), 
             product.getQuantityInStock() + order.getQuantity());
             
-        orders.remove(orderId);
+        orderRepository.delete(order);
     }
 }
